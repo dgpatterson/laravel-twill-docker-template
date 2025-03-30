@@ -50,6 +50,7 @@ echo "Waiting for MySQL to initialize..."
 sleep 60
 
 # Laravel init
+docker compose exec php composer install
 docker compose exec php php artisan config:clear
 docker compose exec php php artisan key:generate
 docker compose exec php php artisan migrate
