@@ -52,6 +52,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_vite
     volumes:
       - ./src:/var/www/html:cached
+      - /var/www/html/node_modules
     working_dir: /var/www/html
     command: [ "npm", "run", "dev" ]
     ports:
