@@ -23,7 +23,7 @@ else
 fi
 
 # Laravel .env setup
-cp src/.env.example src/.env
+cp .env.example .env
 sed "${SED_FLAGS[@]}" "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME\"/" src/.env
 sed "${SED_FLAGS[@]}" "s/^DB_DATABASE=.*/DB_DATABASE=$DB_DATABASE/" src/.env
 sed "${SED_FLAGS[@]}" "s/^DB_USERNAME=.*/DB_USERNAME=$DB_USERNAME/" src/.env
