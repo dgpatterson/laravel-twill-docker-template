@@ -1,6 +1,9 @@
 #!/bin/bash
 
-# Attempt to load DB config from root .env if it exists
+# Set error handling to stop script if we get errors
+set -e
+
+# Load DB defaults from existing .env if present
 if [ -f .env ]; then
   export $(grep -E '^(DB_DATABASE|DB_USERNAME|DB_PASSWORD)=' .env | xargs)
 fi
@@ -15,48 +18,55 @@ DB_DATABASE=${INPUT_DB_DATABASE:-${DB_DATABASE:-laravel}}
 DB_USERNAME=${INPUT_DB_USERNAME:-${DB_USERNAME:-laravel}}
 DB_PASSWORD=${INPUT_DB_PASSWORD:-${DB_PASSWORD:-secret}}
 
-# Detect sed style for compatibility (macOS vs GNU)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  SED_FLAGS=(-i "")
-else
-  SED_FLAGS=(-i)
-fi
+# macOS vs GNU sed
+if [[ "$OSTYPE" == "darwin"* ]]; then SED_FLAGS=(-i ""); else SED_FLAGS=(-i); fi
 
-# Laravel .env setup
+# 1) Make Laravel .env from example and fill important bits
 cp .env.example .env
-sed "${SED_FLAGS[@]}" "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME\"/" src/.env
-sed "${SED_FLAGS[@]}" "s/^DB_DATABASE=.*/DB_DATABASE=$DB_DATABASE/" src/.env
-sed "${SED_FLAGS[@]}" "s/^DB_USERNAME=.*/DB_USERNAME=$DB_USERNAME/" src/.env
-sed "${SED_FLAGS[@]}" "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" src/.env
+# ensure local/dev defaults
+sed "${SED_FLAGS[@]}" "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME\"/" .env
+sed "${SED_FLAGS[@]}" "s/^APP_ENV=.*/APP_ENV=local/" .env
+sed "${SED_FLAGS[@]}" "s/^APP_DEBUG=.*/APP_DEBUG=true/" .env
+sed "${SED_FLAGS[@]}" "s|^APP_URL=.*|APP_URL=http://localhost:8080|" .env
 
-# Create or update root .env file
+# DB to use docker network host and your chosen creds
+sed "${SED_FLAGS[@]}" "s/^DB_HOST=.*/DB_HOST=mysql/" .env
+sed "${SED_FLAGS[@]}" "s/^DB_PORT=.*/DB_PORT=3306/" .env
+sed "${SED_FLAGS[@]}" "s/^DB_DATABASE=.*/DB_DATABASE=${DB_DATABASE}/" .env
+sed "${SED_FLAGS[@]}" "s/^DB_USERNAME=.*/DB_USERNAME=${DB_USERNAME}/" .env
+sed "${SED_FLAGS[@]}" "s/^DB_PASSWORD=.*/DB_PASSWORD=${DB_PASSWORD}/" .env
+
+# 2) Append Compose-only variables (do NOT overwrite .env)
 COMPOSE_PROJECT_NAME=$(basename "$PWD")
+{
+  echo ""
+  echo "# ---- docker compose vars ----"
+  echo "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
+  echo "MYSQL_PORT=3306"
+  echo "NGINX_PORT=8080"
+  echo "VITE_PORT=5173"
+} >> .env
 
-cat > .env <<EOT
-COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
-DB_DATABASE=$DB_DATABASE
-DB_USERNAME=$DB_USERNAME
-DB_PASSWORD=$DB_PASSWORD
-MYSQL_PORT=3306
-NGINX_PORT=8080
-VITE_PORT=5173
-EOT
-
-# Start containers
+# 3) Start containers
 docker compose up -d --build
 
-# Wait for MySQL to be ready
+# 4) Wait for MySQL to be ready (simple retry loop)
 echo "Waiting for MySQL to initialize..."
-sleep 60
+for i in {1..30}; do
+  if docker compose exec -T mysql mysqladmin ping -h localhost --silent; then
+    break
+  fi
+  sleep 2
+done
 
-# Laravel init
+# 5) Laravel init
 docker compose exec php composer install
 docker compose exec php php artisan config:clear
 docker compose exec php php artisan key:generate
 docker compose exec php php artisan migrate
 docker compose exec php php artisan twill:install
 
-# Permissions fix
+# 6) Permissions
 docker compose exec php chown -R www-data:www-data storage bootstrap/cache
 docker compose exec php chmod -R 775 storage bootstrap/cache
 
