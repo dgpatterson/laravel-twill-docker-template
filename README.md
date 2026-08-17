@@ -12,8 +12,12 @@ This template is perfect for teams or solo devs who want:
 
 ## 🚀 Quick Start
 
+Click the **Use this template** button on Github to create a new repository using this one as the template.
+
+Once the repo is created in your account, clone it locally and run the install process:
+
 ```bash
-git clone https://github.com/yourusername/laravel-twill-docker-template.git my-new-project
+git clone https://github.com/yourusername/my-new-project.git
 cd my-new-project
 ./init-project.sh
 ```
@@ -40,22 +44,4 @@ http://localhost:8080/admin to log in to the Twill CMS Admin area.
 
 
 ## Deploying to Laravel Forge
-If you're deploying to [Laravel Forge](https://forge.laravel.com/) and keeping Laravel inside the `src/` folder:
-
-1. **Update your Forge site's web root**:
-    - Set "Web Directory" to:
-      ```
-      src/public
-      ```
-
-2. **Symlink `.env` for production**:
-    - In your Forge deploy script, add:
-      ```bash
-      cd src
-      ln -sf ../.env .env
-      composer install --no-dev --optimize-autoloader
-      php artisan migrate --force
-      php artisan config:cache
-      ```
-
-This allows you to keep Docker-based local development while using a standard Forge deployment for production.
+If you're deploying to [Laravel Forge](https://forge.laravel.com/), it's as simple as creating a new site and selecting this repo from your repository list.
